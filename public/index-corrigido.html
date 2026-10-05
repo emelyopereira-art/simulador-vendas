@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador de atendimento: cliente comparando concorrente</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,500..800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1F5; --surface:#FFFFFF; --ink:#18202E; --muted:#556072; --line:#D5DBE3;
+  --blue:#E30613; --blue-ink:#FFFFFF; --amber:#B86E00; --amber-soft:#FBEBD2;
+  --cust:#E3E8F1; --seller:#E30613; --seller-ink:#FFFFFF; --ok:#1C7A4A; --bad:#B3261E;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121722; --surface:#1B2230; --ink:#E9EDF3; --muted:#A3ADBD; --line:#2E3747;
+    --blue:#E30613; --blue-ink:#FFFFFF; --amber:#F2B45A; --amber-soft:#3A2E1A;
+    --cust:#262F40; --seller:#C9000F; --seller-ink:#FFFFFF; --ok:#5CC48C; --bad:#FF8A80;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121722; --surface:#1B2230; --ink:#E9EDF3; --muted:#A3ADBD; --line:#2E3747;
+  --blue:#E30613; --blue-ink:#FFFFFF; --amber:#F2B45A; --amber-soft:#3A2E1A;
+  --cust:#262F40; --seller:#C9000F; --seller-ink:#FFFFFF; --ok:#5CC48C; --bad:#FF8A80;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Source Sans 3",system-ui,sans-serif;font-size:17px;line-height:1.5}
+h1,h2,h3{font-family:"Archivo",system-ui,sans-serif;font-stretch:88%;margin:0;line-height:1.1}
+.wrap{max-width:760px;margin:0 auto;padding:28px 18px 40px}
+button{font:inherit;cursor:pointer;border-radius:12px;border:2px solid var(--ink);background:var(--surface);color:var(--ink);padding:12px 18px;min-height:46px;font-weight:700}
+button.primary{background:var(--blue);border-color:var(--blue);color:var(--blue-ink)}
+button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,textarea:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.hidden{display:none !important}
+.intro h1{font-size:clamp(34px,7vw,52px);font-weight:800;letter-spacing:-.01em;max-width:16ch}
+.intro p{color:var(--muted);max-width:56ch}
+.levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:24px 0}
+.level{text-align:left;padding:20px;border:2px solid var(--line);border-radius:16px;background:var(--surface);min-height:auto}
+.level[aria-pressed="true"]{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
+.level strong{display:block;font-family:"Archivo",sans-serif;font-size:22px;margin-bottom:6px}
+.level span{font-weight:400;color:var(--muted)}
+.ticket{background:var(--surface);border:2px dashed var(--line);border-radius:16px;padding:18px 20px;margin-bottom:18px;display:flex;gap:16px;align-items:flex-start}
+.ticket .num{font-family:"Archivo",sans-serif;font-stretch:75%;font-weight:800;font-size:44px;line-height:1;color:var(--blue)}
+.ticket h2{font-size:24px}
+.ticket p{margin:4px 0 0;color:var(--muted)}
+.meter{margin-bottom:16px}
+.meter-head{display:flex;justify-content:space-between;font-weight:700;font-size:15px;margin-bottom:6px}
+.bar{height:14px;background:var(--line);border-radius:99px;overflow:hidden}
+.fill{height:100%;width:30%;background:var(--amber);border-radius:99px;transition:width .6s ease}
+@media (prefers-reduced-motion: reduce){.fill{transition:none}}
+.chat{display:flex;flex-direction:column;gap:12px;margin:8px 0 16px}
+.msg{max-width:85%;padding:12px 16px;border-radius:16px;white-space:pre-wrap}
+.msg.cust{background:var(--cust);align-self:flex-start;border-bottom-left-radius:4px}
+.msg.seller{background:var(--seller);color:var(--seller-ink);align-self:flex-end;border-bottom-right-radius:4px}
+.msg .who{display:block;font-size:13px;font-weight:700;opacity:.75;margin-bottom:2px}
+.tip{background:var(--amber-soft);border-radius:12px;padding:12px 16px;font-size:16px}
+.composer{position:sticky;bottom:0;background:var(--paper);padding:10px 0 calc(10px + env(safe-area-inset-bottom,0px))}
+.composer label{display:block;font-weight:700;font-size:15px;margin-bottom:6px}
+textarea{width:100%;min-height:84px;resize:vertical;font:inherit;padding:12px 14px;border-radius:12px;border:2px solid var(--line);background:var(--surface);color:var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.row .primary{flex:1 1 160px}
+.status{color:var(--muted);font-size:15px;min-height:22px;margin-top:6px}
+.result h2{font-size:clamp(28px,6vw,40px);margin-bottom:8px}
+.outcome{display:inline-block;font-weight:700;padding:6px 14px;border-radius:99px;background:var(--cust);margin-bottom:18px}
+.scores{display:grid;gap:12px;margin:12px 0 24px}
+.score{background:var(--surface);border-radius:14px;padding:14px 16px;border:1px solid var(--line)}
+.score-top{display:flex;justify-content:space-between;gap:12px;font-weight:700}
+.dots{display:flex;gap:5px}
+.dot{width:14px;height:14px;border-radius:50%;background:var(--line)}
+.dot.on{background:var(--blue)}
+.score p{margin:6px 0 0;color:var(--muted);font-size:16px}
+.result h3{font-size:20px;margin:18px 0 6px}
+.result ul{margin:0;padding-left:20px}
+.example{background:var(--surface);border-radius:14px;padding:16px;border:2px solid var(--blue);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section id="setup" class="intro">
+    <h1>A outra operadora ofereceu mais. E agora?</h1>
+    <p>Treino de atendimento em loja: o cliente chega comparando com a concorrência. Converse como faria no balcão. No fim, você recebe um feedback do atendimento.</p>
+    <div class="levels" role="group" aria-label="Nível do treino">
+      <button class="level" data-level="iniciante" aria-pressed="true"><strong>Estou começando</strong><span>Cliente mais aberto, termômetro de interesse visível e botão de dica.</span></button>
+      <button class="level" data-level="experiente" aria-pressed="false"><strong>Já tenho estrada</strong><span>Cliente mais fechado, sem termômetro e sem dicas. Ele só se abre com boas perguntas.</span></button>
+    </div>
+    <button id="start" class="primary">Chamar o próximo cliente</button>
+    <p id="setupStatus" class="status" role="status"></p>
+  </section>
+
+  <section id="game" class="hidden">
+    <div class="ticket">
+      <div class="num" id="ticketNum">A00</div>
+      <div><h2 id="custName"></h2><p id="custDesc"></p></div>
+    </div>
+    <div class="meter" id="meterBox">
+      <div class="meter-head"><span>Interesse do cliente</span><span id="meterVal">30%</span></div>
+      <div class="bar" role="progressbar" aria-label="Interesse do cliente" aria-valuemin="0" aria-valuemax="100" aria-valuenow="30" id="meterBar"><div class="fill" id="meterFill"></div></div>
+    </div>
+    <div class="chat" id="chat" aria-live="polite"></div>
+    <div class="composer">
+      <label for="input">Sua resposta</label>
+      <textarea id="input" placeholder="Escreva o que você diria para o cliente"></textarea>
+      <div class="row">
+        <button id="send" class="primary">Responder</button>
+        <button id="tipBtn">Pedir dica</button>
+        <button id="finish">Encerrar e ver feedback</button>
+      </div>
+      <p id="gameStatus" class="status" role="status"></p>
+    </div>
+  </section>
+
+  <section id="result" class="hidden result">
+    <h2>Feedback do atendimento</h2>
+    <div class="outcome" id="outcome"></div>
+    <p id="summary"></p>
+    <div class="scores" id="scores"></div>
+    <h3>Mandou bem</h3><ul id="strengths"></ul>
+    <h3>Para a próxima</h3><ul id="improve"></ul>
+    <h3>Uma forma de dizer</h3>
+    <div class="example" id="example"></div>
+    <div class="row" style="margin-top:24px">
+      <button id="again" class="primary">Atender outro cliente</button>
+    </div>
+  </section>
+
+</div>
+<script>
+const PERSONAS = [
+  { name:"Renata, 34 anos", desc:"Já é cliente de internet em casa. Recebeu uma oferta da outra operadora e veio entender se vale trocar.",
+    secret:"Mãe de dois filhos, trabalha fora, pouco tempo. A outra operadora ofereceu mais velocidade pelo mesmo valor. O que realmente importa para ela: internet que não cai na hora da aula online dos filhos e suporte rápido quando dá problema. Teve uma experiência ruim com atendimento demorado há alguns meses e ainda está chateada com isso." },
+  { name:"Diego, 26 anos", desc:"Quer contratar internet para trabalhar de casa. Já pesquisou duas operadoras antes de entrar na loja.",
+    secret:"Edita vídeos e envia arquivos grandes para clientes. A outra operadora tem desconto nos primeiros meses. O que realmente importa para ele: velocidade de envio (upload), estabilidade e transparência total sobre o preço depois que a promoção acabar. Desconfia de letras miúdas e compara tudo." },
+  { name:"Seu Valdir, 67 anos", desc:"Quer mudar o plano do celular. O neto disse que na outra operadora sai mais barato.",
+    secret:"Aposentado, simpático, mas inseguro com tecnologia e com medo de ser enganado. Usa o celular para falar com a família e ver vídeos. O que realmente importa para ele: alguém com paciência que explique de forma simples, e ajuda para configurar o aparelho e não perder os contatos e fotos." }
+];
+const LEVELS = {
+  iniciante:"O cliente é razoavelmente aberto: se o vendedor fizer perguntas, ele conta suas necessidades sem muita resistência. Levanta a comparação com a concorrência uma vez de forma clara.",
+  experiente:"O cliente é reservado e com pressa. Só revela as necessidades reais se o vendedor fizer boas perguntas abertas e mostrar interesse genuíno. Insiste pelo menos duas vezes na comparação de preço com a concorrência e testa o vendedor com um \"vou pensar\" antes de decidir."
+};
+let level = "iniciante", persona = null, turns = [], interest = 30, busy = false, ctl = null, ended = false;
+const $ = (id) => document.getElementById(id);
+
+const API_ENDPOINT = "/api/ai"
+const DAILY_LIMIT = 10;
+const USAGE_KEY = "simulador-claro-uso";
+
+function usageToday() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(USAGE_KEY) || "{}");
+    const today = new Date().toISOString().slice(0, 10);
+    return saved.date === today ? Number(saved.count || 0) : 0;
+  } catch { return 0; }
+}
+function incrementUsage() {
+  const today = new Date().toISOString().slice(0, 10);
+  localStorage.setItem(USAGE_KEY, JSON.stringify({ date: today, count: usageToday() + 1 }));
+}
+function canStart() {
+  return usageToday() < DAILY_LIMIT;
+}
+function updateLimitMessage() {
+  const used = usageToday();
+  $("setupStatus").textContent = used >= DAILY_LIMIT
+    ? "Você atingiu o limite de 10 simulações hoje. Tente novamente amanhã."
+    : `Simulações hoje: ${used}/${DAILY_LIMIT}.`;
+}
+updateLimitMessage();
+
+document.querySelectorAll(".level").forEach((b) => b.addEventListener("click", () => {
+  level = b.dataset.level;
+  document.querySelectorAll(".level").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+}));
+
+function rules() {
+  return `Você vai interpretar um cliente numa loja física de uma operadora de telecomunicações, num treinamento de vendedores. Fique sempre no personagem.
+
+Personagem: ${persona.name}. ${persona.desc}
+Bastidores (o vendedor NÃO sabe disso, revele aos poucos e só quando fizer sentido): ${persona.secret}
+Nível do treino: ${LEVELS[level]}
+
+Regras:
+- Fale como uma pessoa real no Brasil, em português informal, frases curtas (1 a 3 frases). Nada de linguagem de robô.
+- Não cite nomes de operadoras reais; diga "a outra operadora".
+- Não invente preços, planos ou valores exatos. Se o vendedor citar planos ou preços, aceite como ditos.
+- O interesse (0 a 100) sobe quando o vendedor escuta, faz boas perguntas, conecta a oferta ao que você precisa e mostra valor além do preço. Cai quando ele empurra produto, fala só de preço, ignora o que você disse ou fala mal da concorrência.
+- Status: "conversando" na maior parte do tempo. Use "fechou" só se o vendedor realmente conquistou você e propôs um próximo passo. Use "foi_embora" se o atendimento estiver ruim por várias trocas seguidas.
+
+Responda SOMENTE com JSON neste formato: {"fala":"o que o cliente diz","interesse":45,"status":"conversando"}`;
+}
+
+function addMsg(who, text) {
+  const d = document.createElement("div");
+  d.className = "msg " + (who === "cust" ? "cust" : "seller");
+  const w = document.createElement("span"); w.className = "who";
+  w.textContent = who === "cust" ? persona.name.split(",")[0] : "Você";
+  const t = document.createElement("span"); t.textContent = text;
+  d.append(w, t); $("chat").append(d); d.scrollIntoView({ block: "end", behavior: "smooth" });
+}
+function addTip(text) {
+  const d = document.createElement("div"); d.className = "tip"; d.textContent = "Dica: " + text;
+  $("chat").append(d); d.scrollIntoView({ block: "end", behavior: "smooth" });
+}
+function setInterest(v) {
+  interest = Math.max(0, Math.min(100, Math.round(Number(v) || interest)));
+  $("meterFill").style.width = interest + "%";
+  $("meterVal").textContent = interest + "%";
+  $("meterBar").setAttribute("aria-valuenow", interest);
+}
+function setBusy(b, msg) {
+  busy = b;
+  ["send", "tipBtn", "finish"].forEach((id) => $(id).disabled = b || (ended && id !== "finish"));
+  $("gameStatus").textContent = msg || "";
+}
+function errorText(e) {
+  const c = e && e.code;
+  if (c === "api_key_missing") return "A configuração da IA ainda não foi concluída.";
+  if (c === "rate_limited") return "Muitas mensagens seguidas. Espere um pouco e tente de novo.";
+  if (c === "daily_limit") return "Você atingiu o limite de simulações de hoje.";
+  return "A resposta não chegou. Tente enviar de novo.";
+}
+
+async function callAI(payload) {
+  const response = await fetch(API_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal: ctl ? ctl.signal : undefined
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const err = new Error(data.error || "Erro ao chamar a IA");
+    err.code = data.code || "api_error";
+    throw err;
+  }
+  return data;
+}
+
+async function callAI(payload) {
+  const r = await fetch("/api/ai", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  let data = {};
+  try { data = await r.json(); } catch {}
+  if (!r.ok) {
+    const e = new Error(data.error || "Falha ao chamar a IA.");
+    e.code = data.code;
+    throw e;
+  }
+  return data;
+}
+
+async function customerTurn() {
+  setBusy(true, "O cliente está pensando…");
+  ctl = new AbortController();
+  try {
+    const r = await callAI({ kind: "customer", turns, level, persona, rules: rules() });
+    const fala = String(r.fala || "").trim() || "…";
+    turns.push({ role: "assistant", content: JSON.stringify(r) });
+    addMsg("cust", fala); setInterest(r.interesse);
+    if (r.status === "fechou" || r.status === "foi_embora") {
+      ended = true;
+      $("gameStatus").textContent = r.status === "fechou" ? "O cliente decidiu. Veja seu feedback." : "O cliente foi embora. Veja o que dá para ajustar.";
+      busy = false; $("send").disabled = true; $("tipBtn").disabled = true; $("finish").disabled = false;
+      return;
+    }
+    setBusy(false);
+  } catch (e) {
+    if (e && e.code !== "cancelled") setBusy(false, errorText(e)); else setBusy(false);
+  }
+}
+
+const LIMIT = 10;
+function usageKey() { return "simulador-claro-uso-" + new Date().toISOString().slice(0,10); }
+function usesToday() { return Number(localStorage.getItem(usageKey()) || "0"); }
+function canStart() { return usesToday() < LIMIT; }
+function registerUse() { localStorage.setItem(usageKey(), String(usesToday() + 1)); }
+function updateLimitStatus() { $("setupStatus").textContent = `Simulações restantes hoje: ${Math.max(0, LIMIT - usesToday())}.`; }
+updateLimitStatus();
+
+$("start").addEventListener("click", async () => {
+  if (!canStart()) { updateLimitMessage(); return; }
+  incrementUsage(); updateLimitMessage();
+  persona = PERSONAS[Math.floor(Math.random() * PERSONAS.length)];
+  turns = [{ role: "user", content: rules() + "\n\nO vendedor acabou de te receber no balcão. Comece a conversa explicando por que veio." }];
+  ended = false; $("chat").textContent = ""; setInterest(30);
+  $("ticketNum").textContent = "A" + String(Math.floor(Math.random() * 90) + 10);
+  $("custName").textContent = persona.name; $("custDesc").textContent = persona.desc;
+  const easy = level === "iniciante";
+  $("meterBox").classList.toggle("hidden", !easy); $("tipBtn").classList.toggle("hidden", !easy);
+  $("setup").classList.add("hidden"); $("result").classList.add("hidden"); $("game").classList.remove("hidden");
+  await customerTurn();
+});
+
+async function send() {
+  const text = $("input").value.trim();
+  if (busy || ended) return;
+  if (!text) { if (turns.length === 1) customerTurn(); return; }
+  const last = turns[turns.length - 1];
+  if (last.role === "user") turns.pop(); // a previous send failed; replace it
+  addMsg("seller", text); $("input").value = "";
+  turns.push({ role: "user", content: "Vendedor: " + text + "\n\n(Responda só com o JSON.)" });
+  await customerTurn();
+}
+$("send").addEventListener("click", send);
+$("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(); });
+
+function transcript() {
+  return turns.slice(1).map((t) => {
+    if (t.role === "user") return t.content.replace("\n\n(Responda só com o JSON.)", "");
+    try { return "Cliente: " + JSON.parse(t.content).fala; } catch { return "Cliente: " + t.content; }
+  }).join("\n");
+}
+
+$("tipBtn").addEventListener("click", async () => {
+  if (busy) return;
+  setBusy(true, "Buscando uma dica…");
+  try {
+    const r = await callAI({
+      kind: "tip",
+      transcript: transcript(),
+      level,
+      persona
+    });
+    addTip(String(r.text || "").trim()); setBusy(false);
+  } catch (e) { setBusy(false, e && e.code === "cancelled" ? "" : errorText(e)); }
+});
+
+$("finish").addEventListener("click", async () => {
+  if (busy) return;
+  if (turns.length < 3) { $("gameStatus").textContent = "Converse um pouco com o cliente antes de pedir o feedback."; return; }
+  setBusy(true, "Analisando seu atendimento… isso pode levar até um minuto.");
+  try {
+    const r = await callAI({
+      kind: "feedback",
+      level,
+      persona,
+      transcript: transcript()
+    });
+    $("outcome").textContent = r.resultado || "";
+    $("summary").textContent = r.resumo || "";
+    const sc = $("scores"); sc.textContent = "";
+    (r.criterios || []).forEach((c) => {
+      const box = document.createElement("div"); box.className = "score";
+      const top = document.createElement("div"); top.className = "score-top";
+      const n = document.createElement("span"); n.textContent = c.nome;
+      const dots = document.createElement("span"); dots.className = "dots"; dots.setAttribute("aria-label", `Nota ${c.nota} de 5`);
+      for (let i = 1; i <= 5; i++) { const d = document.createElement("span"); d.className = "dot" + (i <= c.nota ? " on" : ""); dots.append(d); }
+      top.append(n, dots);
+      const p = document.createElement("p"); p.textContent = c.comentario;
+      box.append(top, p); sc.append(box);
+    });
+    const fill = (id, arr) => { const ul = $(id); ul.textContent = ""; (arr || []).forEach((t) => { const li = document.createElement("li"); li.textContent = t; ul.append(li); }); };
+    fill("strengths", r.pontos_fortes); fill("improve", r.melhorar);
+    $("example").textContent = r.exemplo || "";
+    setBusy(false);
+    $("game").classList.add("hidden"); $("result").classList.remove("hidden"); window.scrollTo(0, 0);
+  } catch (e) { setBusy(false, e && e.code === "cancelled" ? "" : errorText(e)); }
+});
+
+$("again").addEventListener("click", () => {
+  $("result").classList.add("hidden"); $("setup").classList.remove("hidden"); updateLimitStatus(); window.scrollTo(0, 0);
+});
+</script>
+</body>
+</html>
